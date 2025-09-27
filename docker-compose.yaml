@@ -6,7 +6,10 @@ services:
       - "23334:3000"
     environment:
       - HOST=0.0.0.0 
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-changeme}
+      - SESSION_SECRET=${SESSION_SECRET}
     volumes:
       - /root/apps/bots/ytupdater/accounts_db.json:/app/accounts_db.json
+      - ./users.json:/app/users.json
       - /tmp/uploads:/tmp/uploads
     restart: unless-stopped

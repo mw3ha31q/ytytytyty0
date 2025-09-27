@@ -1,0 +1,45 @@
+---
+// Check if already logged in
+const cookie = Astro.request.headers.get('cookie');
+if (cookie?.includes('auth_session=')) {
+  return Astro.redirect('/');
+}
+---
+<html>
+<head>
+  <title>Login - YouTube Upload Panel</title>
+  <style>
+    /* Center login form, basic styling */
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>YouTube Upload Panel</h2>
+    <form id="login-form">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+      <div id="error-msg"></div>
+    </form>
+  </div>
+  
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        document.getElementById('error-msg').textContent = 'Invalid password';
+      }
+    });
+  </script>
+</body>
+</html>

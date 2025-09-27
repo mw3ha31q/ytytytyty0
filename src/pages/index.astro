@@ -69,7 +69,16 @@ const accountEmails = Object.keys(accounts);
 <body>
   <div class="container">
     <h1>YouTube Upload Panel</h1>
-    
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <nav>
+      <h1>YouTube Upload Panel</h1>
+      <a href="/">Upload</a>
+      {user.groups.includes('admin') && <a href="/accounts">Accounts</a>}
+      <span>Logged in as: {user.username} ({user.role})</span>
+      <a href="/api/logout">Logout</a>
+    </nav>
+    </div>
     <div class="account-status">
       <h3>Account Status</h3>
       {accountEmails.length === 0 ? (
