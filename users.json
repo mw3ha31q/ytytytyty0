@@ -1,0 +1,14 @@
+{
+  "users": {
+    "superadmin": {
+      "password": "4b4486f0afe5a0940554c1a055968028aa29e4078a8c9ff80b3b90ccc91cb5980f1148cae775b674e86b855933e77b7b8b87ff7a16654e73aa04e3b42c62ccfc",
+      "role": "admin",
+      "groups": ["admin", "uploader"]
+    },
+    "uploader1": {
+      "password": "hash2",
+      "role": "uploader",
+      "groups": ["uploader"]
+    }
+  }
+}
