@@ -1,0 +1,17 @@
+{
+  "name": "youtube-upload-panel",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^4.0.0",
+    "@astrojs/node": "^8.0.0",
+    "googleapis": "^128.0.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}

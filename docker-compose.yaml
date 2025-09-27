@@ -1,0 +1,10 @@
+services:
+  youtube-uploader:
+    build: .
+    container_name: youtube-upload-panel
+    ports:
+      - "23333:3000"
+    volumes:
+      - /root/apps/bots/ytupdater/accounts_db.json:/app/accounts_db.json
+      - /tmp/uploads:/tmp/uploads
+    restart: unless-stopped

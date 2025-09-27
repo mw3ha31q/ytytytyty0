@@ -1,0 +1,145 @@
+---
+import UploadForm from '../components/UploadForm.astro';
+import { loadAccounts } from '../lib/youtube.js';
+
+const accounts = loadAccounts();
+const accountEmails = Object.keys(accounts);
+---
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width" />
+  <title>YouTube Upload Panel</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .account-status {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    .account-item {
+      padding: 8px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-active {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .auth-link {
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .auth-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📹 YouTube Upload Panel</h1>
+    
+    <div class="account-status">
+      <h3>Account Status</h3>
+      {accountEmails.length === 0 ? (
+        <p>No accounts configured. Add accounts to accounts.json</p>
+      ) : (
+        accountEmails.map(email => {
+          const hasToken = accounts[email].token !== null;
+          return (
+            <div class="account-item">
+              <span>{email}</span>
+              {hasToken ? (
+                <span class="status-badge status-active">✓ Connected</span>
+              ) : (
+                <a href={`/api/auth?setup=${email}`} class="auth-link">Connect →</a>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+
+    {accountEmails.some(email => accounts[email].token) && (
+      <UploadForm accounts={accountEmails.filter(email => accounts[email].token)} />
+    )}
+  </div>
+
+  <script>
+    // Handle upload progress
+    const form = document.getElementById('upload-form');
+    const statusDiv = document.getElementById('upload-status');
+    
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Uploading...';
+        
+        statusDiv.innerHTML = '<div class="uploading">⏳ Uploading video...</div>';
+        
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            statusDiv.innerHTML = `
+              <div class="success">
+                ✅ Video uploaded successfully!<br>
+                Video ID: ${result.videoId}<br>
+                <a href="https://youtube.com/watch?v=${result.videoId}" target="_blank">View on YouTube →</a>
+              </div>
+            `;
+            form.reset();
+          } else {
+            statusDiv.innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
+          }
+        } catch (error) {
+          statusDiv.innerHTML = `<div class="error">❌ Upload failed: ${error.message}</div>`;
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Upload Video';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
