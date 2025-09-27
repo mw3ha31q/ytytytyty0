@@ -1,6 +1,15 @@
 ---
+// src/pages/index.astro
 import UploadForm from '../components/UploadForm.astro';
 import { loadAccounts } from '../lib/youtube.js';
+
+// Get user from request (set by middleware)
+const user = Astro.request.user;
+
+// If no user (shouldn't happen due to middleware), redirect to login
+if (!user) {
+  return Astro.redirect('/login');
+}
 
 const accounts = loadAccounts();
 const accountEmails = Object.keys(accounts);
@@ -15,94 +24,211 @@ const accountEmails = Object.keys(accounts);
   <style>
     body {
       font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    
+    .header {
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 15px 0;
+      margin-bottom: 30px;
+    }
+    
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #333;
+    }
+    
+    .nav-menu {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    
+    .nav-menu a {
+      color: #666;
+      text-decoration: none;
+      font-size: 14px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .nav-menu a:hover {
+      background: #f0f0f0;
+    }
+    
+    .user-info {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .user-info strong {
+      color: #333;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e3f2fd;
+      color: #1976d2;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+    
+    .container {
       max-width: 800px;
       margin: 0 auto;
       padding: 20px;
-      background: #f5f5f5;
     }
-    .container {
+    
+    .content-box {
       background: white;
       border-radius: 8px;
       padding: 30px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    h1 {
-      color: #333;
-      margin-bottom: 30px;
-    }
+    
     .account-status {
-      background: #f0f0f0;
-      padding: 15px;
-      border-radius: 5px;
-      margin-bottom: 20px;
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      border: 1px solid #e9ecef;
     }
+    
+    .account-status h3 {
+      margin-top: 0;
+      color: #495057;
+      font-size: 18px;
+    }
+    
     .account-item {
-      padding: 8px 0;
+      padding: 12px;
+      margin: 8px 0;
+      background: white;
+      border-radius: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border: 1px solid #dee2e6;
     }
+    
     .status-badge {
-      padding: 4px 8px;
+      padding: 4px 12px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
     }
+    
     .status-active {
       background: #d4edda;
       color: #155724;
     }
+    
     .status-inactive {
       background: #f8d7da;
       color: #721c24;
     }
+    
     .auth-link {
       color: #007bff;
       text-decoration: none;
       font-size: 14px;
+      padding: 4px 12px;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      transition: all 0.2s;
     }
+    
     .auth-link:hover {
-      text-decoration: underline;
+      background: #007bff;
+      color: white;
+    }
+    
+    .no-accounts {
+      padding: 40px;
+      text-align: center;
+      color: #6c757d;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>YouTube Upload Panel</h1>
-
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-    <nav>
-      <h1>YouTube Upload Panel</h1>
-      <a href="/">Upload</a>
-      {user.groups.includes('admin') && <a href="/accounts">Accounts</a>}
-      <span>Logged in as: {user.username} ({user.role})</span>
-      <a href="/api/logout">Logout</a>
-    </nav>
+  <div class="header">
+    <div class="header-content">
+      <h1>🎥 YouTube Upload Panel</h1>
+      <nav class="nav-menu">
+        <a href="/">📤 Upload</a>
+        {user.groups.includes('admin') && (
+          <a href="/accounts">👥 Accounts</a>
+        )}
+        <div class="user-info">
+          <strong>{user.username}</strong>
+          <span class="badge">{user.role}</span>
+        </div>
+        <a href="/api/logout">🚪 Logout</a>
+      </nav>
     </div>
-    <div class="account-status">
-      <h3>Account Status</h3>
-      {accountEmails.length === 0 ? (
-        <p>No accounts configured. Add accounts to accounts.json</p>
-      ) : (
-        accountEmails.map(email => {
-          const hasToken = accounts[email].token !== null;
-          return (
-            <div class="account-item">
-              <span>{email}</span>
-              {hasToken ? (
-                <span class="status-badge status-active">✓ Connected</span>
-              ) : (
-                <a href={`/api/auth?setup=${email}`} class="auth-link">Connect →</a>
-              )}
-            </div>
-          );
-        })
+  </div>
+
+  <div class="container">
+    <div class="content-box">
+      <div class="account-status">
+        <h3>YouTube Account Status</h3>
+        {accountEmails.length === 0 ? (
+          <div class="no-accounts">
+            <p>No YouTube accounts configured.</p>
+            <p>Add accounts to accounts_db.json file.</p>
+          </div>
+        ) : (
+          accountEmails.map(email => {
+            const hasToken = accounts[email].token !== null;
+            const videoCount = accounts[email].video_count || 0;
+            return (
+              <div class="account-item">
+                <div>
+                  <span>{email}</span>
+                  {hasToken && (
+                    <span style="margin-left: 10px; color: #6c757d; font-size: 13px;">
+                      ({videoCount} videos)
+                    </span>
+                  )}
+                </div>
+                {hasToken ? (
+                  <span class="status-badge status-active">✓ Connected</span>
+                ) : (
+                  <a href={`/api/auth?setup=${email}`} class="auth-link">Connect →</a>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {accountEmails.some(email => accounts[email].token) && 
+       user.groups.includes('uploader') && (
+        <UploadForm accounts={accountEmails.filter(email => accounts[email].token)} />
+      )}
+      
+      {!user.groups.includes('uploader') && (
+        <div style="padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404;">
+          ⚠️ You don't have upload permissions. Contact an administrator.
+        </div>
       )}
     </div>
-
-    {accountEmails.some(email => accounts[email].token) && (
-      <UploadForm accounts={accountEmails.filter(email => accounts[email].token)} />
-    )}
   </div>
 
   <script>

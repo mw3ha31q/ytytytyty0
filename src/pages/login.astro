@@ -1,4 +1,5 @@
 ---
+// src/pages/login.astro
 // Check if already logged in
 const cookie = Astro.request.headers.get('cookie');
 if (cookie?.includes('auth_session=')) {
@@ -9,15 +10,95 @@ if (cookie?.includes('auth_session=')) {
 <head>
   <title>Login - YouTube Upload Panel</title>
   <style>
-    /* Center login form, basic styling */
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    
+    .login-container {
+      background: white;
+      border-radius: 8px;
+      padding: 40px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    h2 {
+      margin: 0 0 30px 0;
+      color: #333;
+      text-align: center;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    input:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+    
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #ff0000;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    
+    button:hover {
+      background: #cc0000;
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    #error-msg {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      border-radius: 4px;
+      color: #721c24;
+      display: none;
+    }
+    
+    #error-msg.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="login-container">
-    <h2>YouTube Upload Panel</h2>
+    <h2>🎥 YouTube Upload Panel</h2>
     <form id="login-form">
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
+      <div class="form-group">
+        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
+      </div>
       <button type="submit">Login</button>
       <div id="error-msg"></div>
     </form>
@@ -26,18 +107,37 @@ if (cookie?.includes('auth_session=')) {
   <script>
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
       
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
+      // Disable form during submission
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in...';
+      errorMsg.classList.remove('show');
       
-      if (res.ok) {
-        window.location.href = '/';
-      } else {
-        document.getElementById('error-msg').textContent = 'Invalid password';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          const data = await res.json();
+          errorMsg.textContent = data.error || 'Invalid credentials';
+          errorMsg.classList.add('show');
+        }
+      } catch (error) {
+        errorMsg.textContent = 'Connection error. Please try again.';
+        errorMsg.classList.add('show');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Login';
       }
     });
   </script>

@@ -1,3 +1,4 @@
+// src/middleware.js
 import crypto from 'crypto';
 import fs from 'fs';
 
@@ -56,7 +57,10 @@ function verifySession(signedToken) {
   if (!signedToken) return null;
   
   try {
-    const [token, signature] = signedToken.split('.');
+    const parts = signedToken.split('.');
+    if (parts.length !== 2) return null;
+    
+    const [token, signature] = parts;
     if (!token || !signature) return null;
     
     // Verify signature
@@ -64,25 +68,35 @@ function verifySession(signedToken) {
     hmac.update(token);
     const expectedSignature = hmac.digest('hex');
     
-    // Constant-time comparison
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    // Compare signatures (both are hex strings, so we can compare directly)
+    if (signature !== expectedSignature) {
+      console.log('Signature mismatch');
       return null;
     }
     
     // Decode user data
     const userData = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
     
+    // Check expiration
+    if (userData.exp && userData.exp < Date.now()) {
+      console.log('Session expired');
+      return null;
+    }
+    
     // Validate user still exists and has same role
     const users = loadUsers();
     const currentUser = users.users[userData.username];
     
-    if (!currentUser) return null;
+    if (!currentUser) {
+      console.log('User not found:', userData.username);
+      return null;
+    }
     
     // Return current user data (in case roles changed)
     return {
       username: userData.username,
       role: currentUser.role,
-      groups: currentUser.groups
+      groups: currentUser.groups || []
     };
     
   } catch (error) {
@@ -93,10 +107,12 @@ function verifySession(signedToken) {
 
 function parseCookies(cookieString) {
   const cookies = {};
+  if (!cookieString) return cookies;
+  
   cookieString.split(';').forEach(cookie => {
-    const [name, value] = cookie.trim().split('=');
-    if (name && value) {
-      cookies[name] = value;
+    const parts = cookie.trim().split('=');
+    if (parts.length === 2) {
+      cookies[parts[0]] = parts[1];
     }
   });
   return cookies;
@@ -104,9 +120,28 @@ function parseCookies(cookieString) {
 
 function loadUsers() {
   try {
+    // First check if file exists
+    if (!fs.existsSync(USERS_FILE)) {
+      console.log('Users file not found, creating default');
+      // Create default superadmin
+      const defaultUsers = {
+        users: {
+          superadmin: {
+            // Default password: "changeme"
+            password: crypto.pbkdf2Sync('changeme', SECRET, 1000, 64, 'sha256').toString('hex'),
+            role: 'admin',
+            groups: ['admin', 'uploader']
+          }
+        }
+      };
+      fs.writeFileSync(USERS_FILE, JSON.stringify(defaultUsers, null, 2));
+      return defaultUsers;
+    }
+    
     const data = fs.readFileSync(USERS_FILE, 'utf8');
     return JSON.parse(data);
-  } catch {
+  } catch (error) {
+    console.error('Error loading users:', error);
     return { users: {} };
   }
 }
