@@ -12,4 +12,5 @@ services:
       - /root/apps/bots/ytupdater/accounts_db.json:/app/accounts_db.json
       - ./users.json:/app/users.json
       - /tmp/uploads:/tmp/uploads
+      - /root/resources/videos:/app/videos
     restart: unless-stopped

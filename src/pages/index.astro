@@ -282,6 +282,8 @@ accountsList.sort((a, b) => a.videos - b.videos);
     <div class="header-content">
       <h1>YouTube Upload Panel</h1>
       <nav class="nav-menu">
+        <a href="/videos">Videos</a>  <!-- ADD THIS LINE -->
+          {user.groups.includes('admin') && <a href="/accounts">Accounts</a>}
         <div class="user-info">
           <strong>{user.username}</strong>
           <span class="badge">{user.role}</span>
