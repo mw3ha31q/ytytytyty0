@@ -3,12 +3,18 @@ import { uploadVideo } from '../../lib/youtube.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
 
 const VIDEOS_DIR = '/app/videos';
 
 export async function POST({ request }) {
+
+  
   try {
     // Get user from middleware
+    
     const user = request.user;
     if (!user) {
       return new Response(JSON.stringify({
@@ -28,7 +34,109 @@ export async function POST({ request }) {
     const tags = formData.get('tags');
     const privacy = formData.get('privacy');
     const timestamps = formData.get('timestamps');
-    const videoFile = formData.get('video');
+    const videoFile = formData.get('video');    
+
+    if (user.role === 'uploader') {;
+      const compressedFile = formData.get('file');
+      const timestamps = formData.get('timestamps') || '';
+      
+      if (!compressedFile) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No file provided'
+        }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Check file extension
+      const fileName = compressedFile.name.toLowerCase();
+      if (!fileName.match(/\.(rar|zip|7z)$/)) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Only RAR, ZIP, or 7Z files allowed'
+        }), { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Save compressed file temporarily
+      const safeFileName = fileName.replace(/[^a-z0-9.-]/gi, '_');
+      const tempPath = `/tmp/uploads/${Date.now()}_${safeFileName}`;
+      const buffer = await compressedFile.arrayBuffer();
+      await fs.writeFile(tempPath, Buffer.from(buffer));
+      
+      // Create a unique extraction folder
+      const extractionFolder = path.join(VIDEOS_DIR, `extract_${Date.now()}`);
+      await fs.mkdir(extractionFolder, { recursive: true });
+      
+      try {
+        // Extract to temporary folder first
+        if (fileName.endsWith('.zip')) {
+          await execAsync(`unzip -o "${tempPath}" -d "${extractionFolder}"`);
+        } else if (fileName.endsWith('.rar')) {
+          await execAsync(`unrar-free -x "${tempPath}" "${extractionFolder}"`);
+        } else if (fileName.endsWith('.7z')) {
+          await execAsync(`7z x "${tempPath}" -o"${extractionFolder}" -y`);
+        }
+        
+        // Find the root folder inside extraction
+        const entries = await fs.readdir(extractionFolder);
+        
+        // Assuming single root folder in compressed file
+        if (entries.length === 1) {
+          const rootFolder = path.join(extractionFolder, entries[0]);
+          const stat = await fs.stat(rootFolder);
+          
+          if (stat.isDirectory()) {
+            // Move contents to final location
+            const finalPath = path.join(VIDEOS_DIR, entries[0]);
+            await execAsync(`mv "${rootFolder}" "${finalPath}"`);
+            
+            // Create sections.txt in each subfolder that contains mp4 files
+            const subfolders = await fs.readdir(finalPath);
+            for (const subfolder of subfolders) {
+              const subfolderPath = path.join(finalPath, subfolder);
+              const subfolderStat = await fs.stat(subfolderPath);
+              
+              if (subfolderStat.isDirectory()) {
+                // Check if folder contains mp4 files
+                const files = await fs.readdir(subfolderPath);
+                const hasMp4 = files.some(file => file.toLowerCase().endsWith('.mp4'));
+                
+                if (hasMp4 && timestamps) {
+                  // Create sections.txt file
+                  const sectionsPath = path.join(subfolderPath, 'sections.txt');
+                  await fs.writeFile(sectionsPath, timestamps, 'utf8');
+                }
+              }
+            }
+            
+            // Clean up extraction folder
+            await execAsync(`rm -rf "${extractionFolder}"`);
+          }
+        }
+        
+        // Clean up temp file
+        await fs.unlink(tempPath);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Files extracted and sections.txt created successfully'
+        }), { 
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+      } catch (extractError) {
+        // Clean up on error
+        await fs.unlink(tempPath).catch(() => {});
+        await execAsync(`rm -rf "${extractionFolder}"`).catch(() => {});
+        throw extractError;
+      }
+    }
     
     if (!account || !title || !videoFile) {
       return new Response(JSON.stringify({

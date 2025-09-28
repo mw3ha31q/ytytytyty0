@@ -149,3 +149,10 @@ export function verifySession(signedToken) {
     return null;
   }
 }
+
+export function getUser(Astro) {
+  const token = Astro.cookies.get('session')?.value;
+  if (!token) return null;
+  
+  return verifySession(token);
+}

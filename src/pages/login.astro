@@ -5,6 +5,17 @@ const cookie = Astro.request.headers.get('cookie');
 if (cookie?.includes('auth_session=')) {
   return Astro.redirect('/');
 }
+
+// Import the same auth functions
+import { getUser } from '../lib/auth';
+
+// Check if already logged in using consistent method
+const user = getUser(Astro);
+const redirect = Astro.url.searchParams.get('redirect') || '/';
+
+if (user) {
+  return Astro.redirect(redirect);
+}
 ---
 <html>
 <head>
