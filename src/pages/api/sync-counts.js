@@ -11,7 +11,7 @@ export async function POST({ request }) {
   try {
     const body = await request.json().catch(() => ({}));
     const result = await fetchVideoCount(body.email);
-    
+
     // If email is provided, sync single account
     if (body.email) {
       const accounts = loadAccounts();
@@ -24,18 +24,29 @@ export async function POST({ request }) {
           headers: { 'Content-Type': 'application/json' }
         });
       }
-      
-      const count = await fetchVideoCount(body.email);
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        email: body.email,
-        count: count,
-        suspended: result.suspended
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      try {
+        const count = await fetchVideoCount(body.email);
+
+        return new Response(JSON.stringify({
+          success: true,
+          email: body.email,
+          count,
+          suspended: false
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          success: false,
+          email: body.email,
+          error: error?.message || 'Unknown error',
+          suspended: Boolean(error?.suspended)
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     } 
     // Otherwise sync all accounts
     else {
@@ -43,7 +54,7 @@ export async function POST({ request }) {
       
       return new Response(JSON.stringify({ 
         success: true, 
-        results: results 
+        results 
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }

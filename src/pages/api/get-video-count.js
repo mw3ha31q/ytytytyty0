@@ -5,29 +5,19 @@ export async function POST({ request }) {
   
   try {
     const count = await fetchVideoCount(email);
-    return new Response(JSON.stringify({ count }), {
+    return new Response(JSON.stringify({ count, suspended: false }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
-    // Check for suspended account
-    if (error.message?.includes('suspended') || error.message?.includes('authenticatedUserAccountSuspended')) {
-      return new Response(JSON.stringify({ 
-        count: 0, 
-        error: true,
-        suspended: true,
-        message: 'Account suspended'
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
     
-    // Return other errors with message
+    
+    const suspended = Boolean(error?.suspended);
     return new Response(JSON.stringify({ 
       count: 0, 
       error: true,
-      message: error.message || 'Unknown error'
+      suspended,
+      message: error?.message || 'Unknown error'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

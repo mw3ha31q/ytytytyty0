@@ -71,76 +71,81 @@ export function incrementVideoCount(email) {
   }
 }
 
-// export async function fetchVideoCount(email) {
-//   const accounts = loadAccounts();
-//   const accountData = accounts[email];
-  
-//   if (!accountData || !accountData.token) {
-//     return 0;
-//   }
-  
-//   try {
-//     const oauth2Client = makeOAuthClient(email, accountData);
-//     oauth2Client.setCredentials(accountData.token);
-    
-//     const youtube = google.youtube({
-//       version: 'v3',
-//       auth: oauth2Client
-//     });
-    
-//     const channelResponse = await youtube.channels.list({
-//       part: ['statistics'],
-//       mine: true
-//     });
-    
-//     if (channelResponse.data.items && channelResponse.data.items.length > 0) {
-//       const videoCount = parseInt(channelResponse.data.items[0].statistics.videoCount) || 0;
-      
-//       accounts[email].video_count = videoCount;
-//       saveAccounts(accounts);
-      
-//       return videoCount;
-//     }
-//   } catch (error) {
-//     console.error(`Error fetching video count for ${email}:`, error);
-//   }
-  
-//   return 0;
-// }
-
 export async function fetchVideoCount(email) {
   const accounts = loadAccounts();
   const accountData = accounts[email];
-
-  if (!accountData || !accountData.token) return { count: 0, suspended: false };
-
+  
+  if (!accountData || !accountData.token) {
+    return 0;
+  }
+  
   try {
     const oauth2Client = makeOAuthClient(email, accountData);
     oauth2Client.setCredentials(accountData.token);
-
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
-
+    
+    const youtube = google.youtube({
+      version: 'v3',
+      auth: oauth2Client
+    });
+    
     const channelResponse = await youtube.channels.list({
       part: ['statistics'],
       mine: true
     });
-
+    
     if (channelResponse.data.items && channelResponse.data.items.length > 0) {
       const videoCount = parseInt(channelResponse.data.items[0].statistics.videoCount) || 0;
+      
       accounts[email].video_count = videoCount;
       saveAccounts(accounts);
-      return { count: videoCount, suspended: false };
+      
+      return videoCount;
     }
   } catch (error) {
-    console.error(`Error fetching video count for ${email}:`, error);
-
-    if (error?.message?.includes('suspended')) {
-      return { count: 0, suspended: true };
+    if (error && typeof error.message === 'string' &&
+        error.message.includes('authenticatedUserAccountSuspended')) {
+      error.suspended = true;
     }
+    console.error(`Error fetching video count for ${email}:`, error);
+    throw error;
   }
-
-  return { count: 0, suspended: false };
+  
+  return 0;
 }
+
+// export async function fetchVideoCount(email) {
+//   const accounts = loadAccounts();
+//   const accountData = accounts[email];
+
+//   if (!accountData || !accountData.token) return { count: 0, suspended: false };
+
+//   try {
+//     const oauth2Client = makeOAuthClient(email, accountData);
+//     oauth2Client.setCredentials(accountData.token);
+
+//     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+
+//     const channelResponse = await youtube.channels.list({
+//       part: ['statistics'],
+//       mine: true
+//     });
+
+//     if (channelResponse.data.items && channelResponse.data.items.length > 0) {
+//       const videoCount = parseInt(channelResponse.data.items[0].statistics.videoCount) || 0;
+//       accounts[email].video_count = videoCount;
+//       saveAccounts(accounts);
+//       return { count: videoCount, suspended: false };
+//     }
+//   } catch (error) {
+//     console.error(`Error fetching video count for ${email}:`, error);
+
+//     if (error?.message?.includes('suspended')) {
+//       return { count: 0, suspended: true };
+//     }
+//   }
+
+//   return { count: 0, suspended: false };
+// }
 
 
 export async function syncAllVideoCounts() {
@@ -149,8 +154,20 @@ export async function syncAllVideoCounts() {
   
   for (const email of Object.keys(accounts)) {
     if (accounts[email].token) {
-      const count = await fetchVideoCount(email);
-      results[email] = count;
+      try {
+        const count = await fetchVideoCount(email);
+        results[email] = {
+          success: true,
+          count,
+          suspended: false
+        };
+      } catch (error) {
+        results[email] = {
+          success: false,
+          error: error?.message || 'Unknown error',
+          suspended: Boolean(error?.suspended)
+        };
+      }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
