@@ -20,7 +20,9 @@ const accountsList = accountEmails.map((email) => {
     email,
     connected: !!accounts[email].token,
     videos: accounts[email].video_count || 0,  // Use cached only
+    suspended: accounts[email].suspended || false,
     lastUpdated: accounts[email].last_updated || null,
+    suspended: !!accounts[email].suspended,
     loading: true  // Add this flag
   };
 });
@@ -406,19 +408,19 @@ accountsList.sort((a, b) => a.videos - b.videos);
         for (const account of accountsList) {
           if (account.connected) {
             try {
-              const response = await fetch('/api/get-video-count', {
+              const res = await fetch('/api/get-video-count', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({email: account.email})
               });
               
-              const data = await response.json();
+              const { count = 0, suspended = false } = await res.json();
               
               // Update the row
               const rowData = table.getRow(account.email).getData();
-              rowData.videos = data.count || 0;
+              rowData.videos = count;
               rowData.loading = false;
-              rowData.suspended = data.suspended || data.error || false;
+              rowData.suspended = suspended;
               table.updateRow(account.email, rowData);
               if (data.suspended) {
                 const rowElement = table.getRow(account.email).getElement();
@@ -427,11 +429,11 @@ accountsList.sort((a, b) => a.videos - b.videos);
 
               await fetch('/api/update-account-cache', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   email: account.email,
-                  video_count: data.count || 0,
-                  suspended: data.suspended || false
+                  video_count: count,     
+                  suspended: suspended    
                 })
               });
               

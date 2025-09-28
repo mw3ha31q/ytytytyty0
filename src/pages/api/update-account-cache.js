@@ -7,7 +7,18 @@ export async function POST({ request }) {
   if (accounts[email]) {
     accounts[email].video_count = video_count;
     accounts[email].last_updated = new Date().toISOString();
-    if (suspended) accounts[email].suspended = true;
+    
+    if (typeof video_count === 'number') {
+        accounts[email].video_count = video_count;
+        } else if (typeof video_count === 'object' && video_count.count) {
+        accounts[email].video_count = video_count.count; 
+    }
+
+    if (typeof suspended === 'boolean') {
+        accounts[email].suspended = suspended;
+    }
+
+
     saveAccounts(accounts);
   }
   

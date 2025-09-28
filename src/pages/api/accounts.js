@@ -8,6 +8,7 @@ export async function GET() {
   for (const [email, data] of Object.entries(accounts)) {
     safeAccounts[email] = {
       hasToken: !!data.token,
+      suspended: !!data.suspended,
       videosCount: data.videos ? data.videos.length : 0
     };
   }

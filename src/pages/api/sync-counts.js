@@ -10,6 +10,7 @@ import { loadAccounts, fetchVideoCount, syncAllVideoCounts } from '../../lib/you
 export async function POST({ request }) {
   try {
     const body = await request.json().catch(() => ({}));
+    const result = await fetchVideoCount(body.email);
     
     // If email is provided, sync single account
     if (body.email) {
@@ -29,7 +30,8 @@ export async function POST({ request }) {
       return new Response(JSON.stringify({ 
         success: true, 
         email: body.email,
-        count: count 
+        count: count,
+        suspended: result.suspended
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
