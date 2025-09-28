@@ -5,8 +5,8 @@
       "role": "admin",
       "groups": ["admin", "uploader"]
     },
-    "uploader1": {
-      "password": "hash2",
+    "nifesi": {
+      "password": "3a00f6a5246a8cee3fde14207377bb24a93d31f885b2e940f0d6951f574498d233961e5b1746c91b53e47365e67fb5bdc7be3db65eccf5a213259647fc6f19fb",
       "role": "uploader",
       "groups": ["uploader"]
     }

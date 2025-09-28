@@ -57,7 +57,10 @@ function verifySession(signedToken) {
   if (!signedToken) return null;
   
   try {
-    const parts = signedToken.split('.');
+    // URL decode the cookie value first
+    const decodedToken = decodeURIComponent(signedToken);
+    
+    const parts = decodedToken.split('.');
     if (parts.length !== 2) return null;
     
     const [token, signature] = parts;
@@ -68,14 +71,21 @@ function verifySession(signedToken) {
     hmac.update(token);
     const expectedSignature = hmac.digest('hex');
     
-    // Compare signatures (both are hex strings, so we can compare directly)
     if (signature !== expectedSignature) {
       console.log('Signature mismatch');
       return null;
     }
     
-    // Decode user data
-    const userData = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
+    // Decode user data with error handling
+    let userData;
+    try {
+      const decoded = Buffer.from(token, 'base64').toString('utf8');
+      userData = JSON.parse(decoded);
+    } catch (decodeError) {
+      console.error('Failed to decode session token:', decodeError);
+      console.log('Invalid token value:', token.substring(0, 20) + '...'); // Log partial for debugging
+      return null;
+    }
     
     // Check expiration
     if (userData.exp && userData.exp < Date.now()) {
@@ -83,7 +93,7 @@ function verifySession(signedToken) {
       return null;
     }
     
-    // Validate user still exists and has same role
+    // Validate user still exists
     const users = loadUsers();
     const currentUser = users.users[userData.username];
     
@@ -92,7 +102,6 @@ function verifySession(signedToken) {
       return null;
     }
     
-    // Return current user data (in case roles changed)
     return {
       username: userData.username,
       role: currentUser.role,
