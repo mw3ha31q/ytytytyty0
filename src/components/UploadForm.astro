@@ -45,8 +45,22 @@ const { accounts } = Astro.props;
       </select>
     </div>
 
+      <div class="form-group">
+        <label for="timestamps">Timestamps/Sections (optional):</label>
+        <textarea 
+          name="timestamps" 
+          id="timestamps" 
+          rows="8"
+          placeholder="0:00 – Opening: What This Airdrop Could Mean
+0:21 – Quick Site Tour: Card, Stats, Tasks
+0:41 – Who Can Join: Wallets & Eligibility"
+        ></textarea>
+      </div>
+
     <button type="submit">Upload Video</button>
   </form>
+
+
 
   <div id="upload-status"></div>
 </div>

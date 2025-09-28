@@ -51,6 +51,13 @@ export async function POST({ request }) {
         tags,
         privacy
       }, tempPath);
+
+      const timestamps = formData.get('timestamps');
+
+      if (timestamps) {
+        videoData.description += '\n\n' + timestamps;
+      }
+
       
       // Clean up temp file
       fs.unlinkSync(tempPath);

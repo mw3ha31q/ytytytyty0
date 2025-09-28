@@ -6,7 +6,7 @@
       "groups": ["admin", "uploader"]
     },
     "nifesi": {
-      "password": "3a00f6a5246a8cee3fde14207377bb24a93d31f885b2e940f0d6951f574498d233961e5b1746c91b53e47365e67fb5bdc7be3db65eccf5a213259647fc6f19fb",
+      "password": "c2088145c198a4358375de9da76d08fae52fad4bd16e1eaa47aeee2315da96efb103734382df3f923c8f847ca23b16353c5e21b206bc8d42eea2680cd23e7a99",
       "role": "uploader",
       "groups": ["uploader"]
     }

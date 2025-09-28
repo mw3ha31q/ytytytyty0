@@ -1,7 +1,7 @@
 ---
 // src/pages/index.astro
 import UploadForm from '../components/UploadForm.astro';
-import { loadAccounts } from '../lib/youtube.js';
+import { loadAccounts, fetchVideoCount } from '../lib/youtube.js';
 
 // Get user from request (set by middleware)
 const user = Astro.request.user;
@@ -13,6 +13,20 @@ if (!user) {
 
 const accounts = loadAccounts();
 const accountEmails = Object.keys(accounts);
+
+// Prepare account data for the tables
+const accountsList = accountEmails.map((email) => {
+  return {
+    email,
+    connected: !!accounts[email].token,
+    videos: accounts[email].video_count || 0,  // Use cached only
+    lastUpdated: accounts[email].last_updated || null,
+    loading: true  // Add this flag
+  };
+});
+
+// Sort by least to most videos
+accountsList.sort((a, b) => a.videos - b.videos);
 ---
 
 <html lang="en">
@@ -21,6 +35,10 @@ const accountEmails = Object.keys(accounts);
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width" />
   <title>YouTube Upload Panel</title>
+  
+  <!-- Tabulator CSS -->
+  <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_modern.min.css" rel="stylesheet">
+  
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -90,7 +108,7 @@ const accountEmails = Object.keys(accounts);
     }
     
     .container {
-      max-width: 800px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -110,53 +128,91 @@ const accountEmails = Object.keys(accounts);
       border: 1px solid #e9ecef;
     }
     
-    .account-status h3 {
-      margin-top: 0;
+    .account-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .account-header h3 {
+      margin: 0;
       color: #495057;
       font-size: 18px;
     }
     
-    .account-item {
-      padding: 12px;
-      margin: 8px 0;
+    .account-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+      color: #6c757d;
+    }
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .stat-value {
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .search-box {
+      margin-bottom: 15px;
+    }
+    
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .search-box input:focus {
+      outline: none;
+      border-color: #80bdff;
+      box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+    
+    #accounts-table {
       background: white;
       border-radius: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border: 1px solid #dee2e6;
+      overflow: hidden;
     }
     
-    .status-badge {
-      padding: 4px 12px;
+    .sync-btn {
+      padding: 6px 12px;
+      background: #28a745;
+      color: white;
+      border: none;
       border-radius: 4px;
+      cursor: pointer;
       font-size: 13px;
-      font-weight: 500;
+      transition: background 0.2s;
     }
     
-    .status-active {
-      background: #d4edda;
-      color: #155724;
+    .sync-btn:hover {
+      background: #218838;
     }
     
-    .status-inactive {
-      background: #f8d7da;
-      color: #721c24;
-    }
-    
-    .auth-link {
-      color: #007bff;
-      text-decoration: none;
-      font-size: 14px;
-      padding: 4px 12px;
-      border: 1px solid #007bff;
-      border-radius: 4px;
-      transition: all 0.2s;
-    }
-    
-    .auth-link:hover {
+    .connect-btn {
+      padding: 6px 12px;
       background: #007bff;
       color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.2s;
+    }
+    
+    .connect-btn:hover {
+      background: #0056b3;
     }
     
     .no-accounts {
@@ -164,22 +220,71 @@ const accountEmails = Object.keys(accounts);
       text-align: center;
       color: #6c757d;
     }
+    
+    /* Tabulator customization */
+    .tabulator {
+      font-size: 14px;
+    }
+    
+    .tabulator .tabulator-header {
+      background: #f8f9fa;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .tabulator-row {
+      min-height: 45px;
+    }
+    
+    .tabulator-row:hover {
+      background: #f8f9fa !important;
+    }
+    
+    .status-connected {
+      color: #28a745;
+      font-weight: 500;
+    }
+    
+    .status-disconnected {
+      color: #dc3545;
+      font-weight: 500;
+    }
+    .skeleton {
+      animation: skeleton-loading 1s linear infinite alternate;
+    }
+    @keyframes skeleton-loading {
+      0% { background-color: #f0f0f0; }
+      100% { background-color: #e0e0e0; }
+    }
+    .skeleton-text {
+      height: 16px;
+      width: 40px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .status-suspended {
+      color: #fff;
+      font-weight: 500;
+    }
+    .tabulator-row.row-suspended {
+      background-color: #8b0000 !important; /* Dark red */
+      color: white;
+    }
+    .tabulator-row.row-suspended:hover {
+      background-color: #a00000 !important; /* Slightly lighter on hover */
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-content">
-      <h1>🎥 YouTube Upload Panel</h1>
+      <h1>YouTube Upload Panel</h1>
       <nav class="nav-menu">
-        <a href="/">📤 Upload</a>
-        {user.groups.includes('admin') && (
-          <a href="/accounts">👥 Accounts</a>
-        )}
         <div class="user-info">
           <strong>{user.username}</strong>
           <span class="badge">{user.role}</span>
         </div>
-        <a href="/api/logout">🚪 Logout</a>
+        <a href="/api/logout">Logout</a>
       </nav>
     </div>
   </div>
@@ -188,34 +293,7 @@ const accountEmails = Object.keys(accounts);
     <div class="content-box">
       <div class="account-status">
         <h3>YouTube Account Status</h3>
-        {accountEmails.length === 0 ? (
-          <div class="no-accounts">
-            <p>No YouTube accounts configured.</p>
-            <p>Add accounts to accounts_db.json file.</p>
-          </div>
-        ) : (
-          accountEmails.map(email => {
-            const hasToken = accounts[email].token !== null;
-            const videoCount = accounts[email].video_count || 0;
-            return (
-              <div class="account-item">
-                <div>
-                  <span>{email}</span>
-                  {hasToken && (
-                    <span style="margin-left: 10px; color: #6c757d; font-size: 13px;">
-                      ({videoCount} videos)
-                    </span>
-                  )}
-                </div>
-                {hasToken ? (
-                  <span class="status-badge status-active">✓ Connected</span>
-                ) : (
-                  <a href={`/api/auth?setup=${email}`} class="auth-link">Connect →</a>
-                )}
-              </div>
-            );
-          })
-        )}
+        <div id="accounts-table"></div>
       </div>
 
       {accountEmails.some(email => accounts[email].token) && 
@@ -231,8 +309,153 @@ const accountEmails = Object.keys(accounts);
     </div>
   </div>
 
+  <!-- Tabulator JS -->
+  <script src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
+  
+
+
+<script define:vars={{ accountsList }}>
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      const table = new Tabulator("#accounts-table", {
+        data: accountsList,
+        index: "email",
+        pagination: true,
+        paginationSize: 50,
+        rowFormatter: function(row) {  // Add this
+          const data = row.getData();
+          if (data.suspended) {
+            row.getElement().classList.add("row-suspended");
+          }
+        },
+        initialSort: [{column: "videos", dir: "asc"}],
+          columns: [
+            {
+              title: "Email", 
+              field: "email", 
+              minWidth: 200,
+              formatter: function(cell) {
+                const value = cell.getValue();
+                return `<strong>${value}</strong>`;
+              }
+            },
+            {
+              title: "Status", 
+              field: "connected", 
+              width: 120,
+              hozAlign: "center",
+              formatter: function(cell) {
+                const value = cell.getValue();
+                const row = cell.getRow().getData();
+                if (row.suspended) {
+                  return '<span class="status-suspended">⛔ Suspended</span>';
+                }
+                if (value) {
+                  return '<span class="status-connected">✅ Connected</span>';
+                } else {
+                  return '<span class="status-disconnected">❌ Not Connected</span>';
+                }
+              }
+            },
+            {
+              title: "Videos", 
+              field: "videos", 
+              width: 100,
+              hozAlign: "center",
+              sorter: "number",
+              formatter: function(cell) {
+                const row = cell.getRow().getData();
+                if (row.loading) {
+                  return '<div class="skeleton skeleton-text"></div>';  // Show skeleton
+                }
+                const value = cell.getValue();
+                return `<strong>${value}</strong>`;
+              }
+            },
+            {
+              title: "Last Updated", 
+              field: "lastUpdated",
+              width: 150,
+              formatter: function(cell) {
+                const value = cell.getValue();
+                if (!value) return '<span style="color: #999;">Never</span>';
+                const date = new Date(value);
+                return date.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                });
+              }
+            },
+            {
+              title: "Actions", 
+              width: 120,
+              hozAlign: "center",
+              formatter: function(cell) {
+                const row = cell.getRow().getData();
+                if (row.connected) {
+                  return `<button class="sync-btn" onclick="syncAccount('${row.email}')">🔄 Sync</button>`;
+                } else {
+                  return `<a href="/api/auth?setup=${row.email}" class="connect-btn">Connect →</a>`;
+                }
+              }
+            }
+          ]
+      });
+      async function loadVideoCounts() {
+        for (const account of accountsList) {
+          if (account.connected) {
+            try {
+              const response = await fetch('/api/get-video-count', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email: account.email})
+              });
+              
+              const data = await response.json();
+              
+              // Update the row
+              const rowData = table.getRow(account.email).getData();
+              rowData.videos = data.count || 0;
+              rowData.loading = false;
+              rowData.suspended = data.suspended || data.error || false;
+              table.updateRow(account.email, rowData);
+              if (data.suspended) {
+                const rowElement = table.getRow(account.email).getElement();
+                rowElement.classList.add("row-suspended");
+              }
+
+              await fetch('/api/update-account-cache', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  email: account.email,
+                  video_count: data.count || 0,
+                  suspended: data.suspended || false
+                })
+              });
+              
+            } catch (error) {
+              // Handle errors
+              const rowData = table.getRow(account.email).getData();
+              rowData.videos = 0;
+              rowData.loading = false;
+              table.updateRow(account.email, rowData);
+            }
+          }
+        }
+      }
+
+
+      setTimeout(loadVideoCounts, 100);
+
+    });
+
+  </script>
+
+
   <script>
-    // Handle upload progress
+    // Handle upload progress (existing code)
     const form = document.getElementById('upload-form');
     const statusDiv = document.getElementById('upload-status');
     
@@ -264,6 +487,9 @@ const accountEmails = Object.keys(accounts);
               </div>
             `;
             form.reset();
+            
+            // Reload page to update video counts
+            setTimeout(() => location.reload(), 3000);
           } else {
             statusDiv.innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
           }
